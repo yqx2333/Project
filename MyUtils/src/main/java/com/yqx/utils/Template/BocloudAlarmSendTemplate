@@ -1,0 +1,291 @@
+package com.bocloud.cms.common.utils;
+
+import com.alibaba.fastjson.JSONObject;
+import com.bocloud.cms.entity.Alarm;
+import com.bocloud.cms.entity.AlarmTemplate;
+import com.bocloud.cms.enums.AlarmLevel;
+import com.bocloud.common.utils.DateTools;
+import freemarker.cache.TemplateLoader;
+import freemarker.template.Configuration;
+import freemarker.template.Template;
+import freemarker.template.TemplateException;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
+
+import java.io.*;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * 告警模版工具类
+ *
+ * @author zhangyf
+ * @since 2019-01-05
+ */
+public class AlarmTemplateUtils {
+
+    private AlarmTemplateUtils() {
+    }
+
+    private static final Logger logger = LoggerFactory.getLogger(AlarmTemplateUtils.class);
+
+    /**
+     * 利用消息模板生成消息内容
+     *
+     * @param alarm
+     * @param policyName
+     * @param alarmTemplate
+     * @return
+     */
+    public static String template2Msg(Alarm alarm, String policyName, AlarmTemplate alarmTemplate) {
+        Template template = getTemplate(alarm, "message", alarmTemplate);
+        return buildContent(alarm, policyName, template);
+    }
+
+    /**
+     * 利用邮件模板 生成邮件内容
+     *
+     * @param alarm
+     * @param policyName
+     * @param alarmTemplate
+     * @return
+     */
+    public static String template2Email(Alarm alarm, String policyName, AlarmTemplate alarmTemplate) {
+        Template template = getTemplate(alarm, "email", alarmTemplate);
+        return buildContent(alarm, policyName, template);
+
+    }
+
+    /**
+     * 利用消息模板生成告警恢复消息内容
+     *
+     * @param alarm
+     * @param policyName
+     * @param alarmTemplate
+     * @return
+     */
+    public static String template2MsgRecovery(Alarm alarm, String policyName, AlarmTemplate alarmTemplate) {
+        Template template = getTemplate(alarm, "msgRecovery", alarmTemplate);
+        return buildContent(alarm, policyName, template);
+    }
+
+    /**
+     * 利用邮件模板 生成告警恢复邮件内容
+     *
+     * @param alarm
+     * @param policyName
+     * @param alarmTemplate
+     * @return
+     */
+    public static String template2EmailRecovery(Alarm alarm, String policyName, AlarmTemplate alarmTemplate) {
+        Template template = getTemplate(alarm, "recoveryEmail", alarmTemplate);
+        return buildContent(alarm, policyName, template);
+
+    }
+
+    /**
+     * 利用模板 构建内容
+     *
+     * @param alarm
+     * @param policyName
+     * @param template
+     * @return
+     */
+    private static String buildContent(Alarm alarm, String policyName, Template template) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> props = JSONObject.parseObject(alarm.getProps(), HashMap.class);
+            Map<String, Object> map = new HashMap<>();
+            map.put("name", alarm.getName());//告警名称
+            map.put("alarmVal", alarm.getAlarmVal());//告警值
+            map.put("recoveryVal", alarm.getRecoveryVal());//告警恢复值
+            map.put("duration", alarm.getDuration());//持续时长
+            map.put("remark", alarm.getRemark());//告警内容
+            map.putAll(props);
+            // 告警源
+            map.put("target", alarm.getTargetName());
+            // 分发策略
+            if (StringUtils.isNotBlank(policyName)) {
+                map.put("policy", policyName);
+            }
+            map.put("triggerTime", DateTools.formatTime(alarm.getGmtTrigger()));
+            map.put("solveTime", alarm.getGmtSolve() == null ? "" : DateTools.formatTime(alarm.getGmtSolve()));
+            switch (AlarmLevel.valueOf(alarm.getLevel())) {
+                case URGENT:
+                    map.put("level", "紧急告警");
+                    break;
+                case PRIMARY:
+                    map.put("level", "重要告警");
+                    break;
+                case SECONDARY:
+                    map.put("level", "次要告警");
+                    break;
+                case REMIND:
+                    map.put("level", "提示告警");
+                    break;
+                default:
+                    map.put("level", "");
+                    break;
+            }
+            if (null == alarm.getConfirmer()) {
+                map.put("status", "未确认");
+            } else {
+                map.put("status", "已确认,确认人:" + alarm.getConfirmer());
+            }
+            return FreeMarkerTemplateUtils.processTemplateIntoString(template, map);
+        } catch (IOException | TemplateException e) {
+            logger.error("处理数据失败", e);
+        } catch (Exception e) {
+            logger.error("query threshold error!", e);
+        }
+        return "";
+    }
+
+    private static Template getTemplate(Alarm alarm, String templateId, AlarmTemplate alarmTemplate) {
+        Configuration cfg = new Configuration(Configuration.VERSION_2_3_25);
+        cfg.setClassicCompatible(true);
+        cfg.setDefaultEncoding("utf-8");
+        cfg.setLocale(Locale.SIMPLIFIED_CHINESE);
+        cfg.setNumberFormat("#");
+        cfg.setDateFormat("yyyy-MM-dd");
+        cfg.setTimeFormat("HH:mm:ss");
+        cfg.setDateTimeFormat("yyyy-MM-dd HH:mm:ss");
+        cfg.setClassForTemplateLoading(AlarmTemplateUtils.class, "/");
+        cfg.setTemplateLoader(new TemplateLoader() {
+            @Override
+            public void closeTemplateSource(Object templateSource) throws IOException {
+
+            }
+
+            @Override
+            public Object findTemplateSource(String name) throws IOException {
+                String filename = null;         // 默认告警内容
+                String templateName = null;     // 模板告警内容
+                if (alarmTemplate != null) {
+                    // 如果告警模板中有内容,则默认使用告警模板中的内容
+                    // 如果告警模板中为null,则使用默认告警文本;
+                    if (name.startsWith("email")) {
+                        if (!"".equals(alarmTemplate.getEmail()) && alarmTemplate.getEmail()!=null){
+                            templateName = alarmTemplate.getEmail();
+                        }else{
+                            filename = "template/AlarmEmailTemplate.ftl";
+                        }
+                    } else if (name.startsWith("message")) {
+                        if (!"".equals(alarmTemplate.getMessage()) && alarmTemplate.getMessage()!=null){
+                            templateName = alarmTemplate.getMessage();
+                        }else{
+                            filename = "template/AlarmMessageTemplate.ftl";
+                        }
+                    } else if (name.startsWith("recoveryEmail")) {
+                        if (!"".equals(alarmTemplate.getEmailRecovery()) && alarmTemplate.getEmailRecovery()!=null){
+                            templateName = alarmTemplate.getEmailRecovery();
+                        }else{
+                            filename = "template/AlarmEmailRecoveryTemplate.ftl";
+                        }
+                    } else if (name.startsWith("msgRecovery")) {
+                        if (!"".equals(alarmTemplate.getMessageRecovery()) && alarmTemplate.getMessageRecovery()!=null){
+                            templateName = alarmTemplate.getEmail();
+                        }else{
+                            filename = "template/AlarmMsgRecoveryTemplate.ftl";
+                        }
+                    } else {
+                        return alarm.getRemark();
+                    }
+                    ByteArrayInputStream tInputStringStream;        // 模板告警发送
+                    InputStream inStream;                           // 默认告警发送
+                    // 如果取到模板中的内容不为null 则使用模板内容发送
+                    if (templateName!=null){
+                        tInputStringStream = new ByteArrayInputStream(templateName.getBytes());
+                        ByteArrayOutputStream outSteam = new ByteArrayOutputStream();
+                        byte[] buffer = new byte[1024];
+                        int len = -1;
+                        try {
+                            while ((len = tInputStringStream.read(buffer)) != -1) {
+                                outSteam.write(buffer, 0, len);
+                            }
+                            return new String(outSteam.toByteArray());
+                        } catch (IOException e) {
+                            return "";
+                        } finally {
+                            outSteam.close();
+                            tInputStringStream.close();
+                        }
+                    }else{
+                        // 否则就使用默认模板内容进行发送
+                        inStream = Configuration.class.getClassLoader().getResourceAsStream(filename);
+                        ByteArrayOutputStream outSteam = new ByteArrayOutputStream();
+                        byte[] buffer = new byte[1024];
+                        int len = -1;
+                        try {
+                            while ((len = inStream.read(buffer)) != -1) {
+                                outSteam.write(buffer, 0, len);
+                            }
+                            return new String(outSteam.toByteArray());
+                        } catch (IOException e) {
+                            return "";
+                        } finally {
+                            outSteam.close();
+                            inStream.close();
+                        }
+                    }
+                } else {
+                    // 取不同模板 由于arg带有local信息 所以用starwith
+                    if (name.startsWith("email")) {
+                        filename = "template/AlarmEmailTemplate.ftl";
+                    } else if (name.startsWith("message")) {
+                        filename = "template/AlarmMessageTemplate.ftl";
+                    } else if (name.startsWith("recoveryEmail")) {
+                        filename = "template/AlarmEmailRecoveryTemplate.ftl";
+                    } else if (name.startsWith("msgRecovery")) {
+                        filename = "template/AlarmMsgRecoveryTemplate.ftl";
+                    } else {
+                        return alarm.getRemark();
+                    }
+                    InputStream inStream = Configuration.class.getClassLoader().getResourceAsStream(filename);
+                    ByteArrayOutputStream outSteam = new ByteArrayOutputStream();
+                    byte[] buffer = new byte[1024];
+                    int len = -1;
+                    try {
+                        while ((len = inStream.read(buffer)) != -1) {
+                            outSteam.write(buffer, 0, len);
+                        }
+                        // 邮件类型 需要把\r\n转换成BR 等
+//					if (name.startsWith("email")) {
+//						return new String(outSteam.toByteArray()).replace("${content!}", alarm.getRemark().replaceAll("\\r\\n", "<BR/>").replaceAll("\\n", "<BR/>").replaceAll(" ", "&nbsp;"));
+//					} else {
+//						return new String(outSteam.toByteArray()).replace("${content!}", alarm.getRemark());
+//					}
+                        return new String(outSteam.toByteArray());
+                    } catch (IOException e) {
+                        return "";
+                    } finally {
+                        outSteam.close();
+                        inStream.close();
+                    }
+                }
+            }
+
+            @Override
+            public long getLastModified(Object templateSource) {
+                return 0;
+            }
+
+            @Override
+            public Reader getReader(Object templateSouse, String encodetype) throws IOException {
+                return new StringReader(templateSouse.toString());
+            }
+
+        });
+        Template template;
+        try {
+            template = cfg.getTemplate(templateId); // framemaker.ftl为要装载的模板
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return template;
+    }
+
+}

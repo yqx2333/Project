@@ -1,0 +1,633 @@
+package com.yqx.utils.ExcelUtils;
+
+import com.sun.org.slf4j.internal.Logger;
+import com.sun.org.slf4j.internal.LoggerFactory;
+import javafx.scene.chart.Chart;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * excel图标导出工具类
+ */
+
+public class ExcelChartUtil {
+    private static Logger logger = LoggerFactory.getLogger(ExcelChartUtil.class);
+
+    public static BocloudResult createMonitorCharExcel(BocloudResult result, HttpServletRequest request,
+                                                       HttpServletResponse response) {
+        try {
+            SXSSFWorkbook wb = new SXSSFWorkbook();
+            SXSSFSheet sheet1 = wb.createSheet("Sheet2");
+            SXSSFSheet sheet = wb.createSheet("Sheet1");
+            wb.setSheetHidden(wb.getSheetIndex(sheet), true);
+            // 样式准备
+            CellStyle style = wb.createCellStyle();
+            style.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
+            style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            style.setBorderBottom(BorderStyle.THIN); // 下边框
+            style.setBorderLeft(BorderStyle.THIN);// 左边框
+            style.setBorderTop(BorderStyle.THIN);// 上边框
+            style.setBorderRight(BorderStyle.THIN);// 右边框
+            style.setAlignment(HorizontalAlignment.CENTER);
+            CellStyle cellStyle = wb.createCellStyle();
+            cellStyle.setBorderTop(BorderStyle.THIN);// 上边框
+            cellStyle.setBorderBottom(BorderStyle.THIN); // 下边框
+            cellStyle.setBorderLeft(BorderStyle.THIN);// 左边框
+            cellStyle.setBorderRight(BorderStyle.THIN);// 右边框
+            cellStyle.setAlignment(HorizontalAlignment.CENTER);// 水平对齐方式
+            cellStyle.setVerticalAlignment(VerticalAlignment.TOP);//垂直对齐方式
+            //处理数据
+            List<BaseFormMap> dataList = null;
+            List<String> fldNameArr = null;
+            List<String> titleArr = null;
+            List<String> showTailArr = null;
+            List<String> isPercentArr = null;
+            AnalysisSnapshot snapshot = (AnalysisSnapshot) (result.getData());
+            List<JSONObject> rules = JSONObject.parseArray(snapshot.getRule()).toJavaList(JSONObject.class);
+            String type = snapshot.getType();
+            String analyzeName = snapshot.getRuleName();
+            String startTime = snapshot.getStartTime().toString();
+            String endTime = snapshot.getEndTime().toString();
+            String vendorName = snapshot.getVendorName();
+            sheet1.createRow(31).createCell(0).setCellValue("名称");
+            sheet1.getRow(31).createCell(4).setCellValue("IP");
+            sheet1.getRow(31).getCell(0).setCellStyle(style);
+            sheet1.getRow(31).getCell(4).setCellStyle(style);
+            CellRangeAddress regionTitle = new CellRangeAddress(31, 31, 0, 3);
+            sheet1.addMergedRegion(regionTitle);
+            CellRangeAddress regionIp = new CellRangeAddress(31, 31, 4, 5);
+            sheet1.addMergedRegion(regionIp);
+            String name = null;
+            switch (type) {
+                case "cloudServerRecycle":
+                    name = "虚拟机资源回收";
+                    sheet1.getRow(31).createCell(6).setCellValue("CPU利用率(%)");
+                    sheet1.getRow(31).createCell(8).setCellValue("内存利用率(%)");
+                    sheet1.getRow(31).createCell(10).setCellValue("磁盘利用率(%)");
+                    sheet1.getRow(31).getCell(6).setCellStyle(style);
+                    sheet1.getRow(31).getCell(8).setCellStyle(style);
+                    sheet1.getRow(31).getCell(10).setCellStyle(style);
+                    CellRangeAddress cloudServerRecycleCPU = new CellRangeAddress(31, 31, 6, 7);
+                    sheet1.addMergedRegion(cloudServerRecycleCPU);
+                    CellRangeAddress cloudServerRecycleMemory = new CellRangeAddress(31, 31, 8, 9);
+                    sheet1.addMergedRegion(cloudServerRecycleMemory);
+                    CellRangeAddress cloudServerRecycleDisk = new CellRangeAddress(31, 31, 10, 11);
+                    sheet1.addMergedRegion(cloudServerRecycleDisk);
+                    break;
+                case "wholeMachineRecycle":
+                    name = "虚拟机整机回收";
+                    sheet1.getRow(31).createCell(6).setCellValue("磁盘使用情况(KBps)");
+                    sheet1.getRow(31).createCell(8).setCellValue("网络使用情况(KBps)");
+                    sheet1.getRow(31).getCell(6).setCellStyle(style);
+                    sheet1.getRow(31).getCell(8).setCellStyle(style);
+                    CellRangeAddress wholeMachineRecycleDisk = new CellRangeAddress(31, 31, 6, 7);
+                    sheet1.addMergedRegion(wholeMachineRecycleDisk);
+                    CellRangeAddress wholeMachineRecycleNet = new CellRangeAddress(31, 31, 8, 9);
+                    sheet1.addMergedRegion(wholeMachineRecycleNet);
+                    break;
+                case "cloudServerCapacityExpansion":
+                    name = "虚拟机扩容";
+                    sheet1.getRow(31).createCell(6).setCellValue("CPU利用率(%)");
+                    sheet1.getRow(31).createCell(8).setCellValue("内存利用率(%)");
+                    sheet1.getRow(31).createCell(10).setCellValue("磁盘利用率(%)");
+                    sheet1.getRow(31).getCell(6).setCellStyle(style);
+                    sheet1.getRow(31).getCell(8).setCellStyle(style);
+                    sheet1.getRow(31).getCell(10).setCellStyle(style);
+                    CellRangeAddress cloudServerCapacityExpansionCpu = new CellRangeAddress(31, 31, 6, 7);
+                    sheet1.addMergedRegion(cloudServerCapacityExpansionCpu);
+                    CellRangeAddress cloudServerCapacityExpansionMemory = new CellRangeAddress(31, 31, 8, 9);
+                    sheet1.addMergedRegion(cloudServerCapacityExpansionMemory);
+                    CellRangeAddress cloudServerCapacityDisk = new CellRangeAddress(31, 31, 10, 11);
+                    sheet1.addMergedRegion(cloudServerCapacityDisk);
+                    break;
+                case "serverCapacityExpansion":
+                    name = "宿主机扩容";
+                    sheet1.getRow(31).createCell(6).setCellValue("CPU利用率(%)");
+                    sheet1.getRow(31).createCell(8).setCellValue("内存利用率(%)");
+                    sheet1.getRow(31).createCell(10).setCellValue("CPU就绪时间(毫秒)");
+                    sheet1.getRow(31).getCell(6).setCellStyle(style);
+                    sheet1.getRow(31).getCell(8).setCellStyle(style);
+                    sheet1.getRow(31).getCell(10).setCellStyle(style);
+                    CellRangeAddress serverCapacityExpansionCpu = new CellRangeAddress(31, 31, 6, 7);
+                    sheet1.addMergedRegion(serverCapacityExpansionCpu);
+                    CellRangeAddress serverCapacityExpansionMemory = new CellRangeAddress(31, 31, 8, 9);
+                    sheet1.addMergedRegion(serverCapacityExpansionMemory);
+                    CellRangeAddress wholeMachineRecycleMemorySwap = new CellRangeAddress(31, 31, 10, 11);
+                    sheet1.addMergedRegion(wholeMachineRecycleMemorySwap);
+                    break;
+                default:
+                    break;
+            }
+            List<JSONObject> charts = JSONObject.parseObject(snapshot.getResult()).getJSONArray("charts").toJavaList(JSONObject.class);
+            List<JSONObject> list = JSONObject.parseObject(snapshot.getResult()).getJSONArray("list").toJavaList(JSONObject.class);
+            //规则信息及资源信息写入
+
+            sheet1.createRow(0).createCell(0).setCellValue("平台名称");
+            sheet1.getRow(0).createCell(2).setCellValue("监控分析名称");
+            sheet1.getRow(0).createCell(4).setCellValue("时间");
+            sheet1.getRow(0).getCell(0).setCellStyle(style);
+            sheet1.getRow(0).getCell(2).setCellStyle(style);
+            sheet1.getRow(0).getCell(4).setCellStyle(style);
+            CellRangeAddress regionVendorName = new CellRangeAddress(0, 0, 0, 1);
+            sheet1.addMergedRegion(regionVendorName);
+            CellRangeAddress regionName = new CellRangeAddress(0, 0, 2, 3);
+            sheet1.addMergedRegion(regionName);
+            CellRangeAddress regionTime = new CellRangeAddress(0, 0, 4, 8);
+            sheet1.addMergedRegion(regionTime);
+
+            sheet1.createRow(1).createCell(0).setCellValue(vendorName == null ? "" : vendorName);
+            sheet1.getRow(1).createCell(2).setCellValue(analyzeName == null ? "" : analyzeName);
+            sheet1.getRow(1).createCell(4).setCellValue(startTime);
+            sheet1.getRow(1).createCell(6).setCellValue("-");
+            sheet1.getRow(1).createCell(7).setCellValue(endTime);
+            sheet1.getRow(1).getCell(0).setCellStyle(cellStyle);
+            sheet1.getRow(1).getCell(2).setCellStyle(cellStyle);
+            sheet1.getRow(1).getCell(4).setCellStyle(cellStyle);
+            sheet1.getRow(1).getCell(6).setCellStyle(cellStyle);
+            sheet1.getRow(1).getCell(7).setCellStyle(cellStyle);
+            CellRangeAddress regionVendorNameValue = new CellRangeAddress(1, 1, 0, 1);
+            sheet1.addMergedRegion(regionVendorNameValue);
+            CellRangeAddress regionNameValue = new CellRangeAddress(1, 1, 2, 3);
+            sheet1.addMergedRegion(regionNameValue);
+            CellRangeAddress regionStartTime = new CellRangeAddress(1, 1, 4, 5);
+            sheet1.addMergedRegion(regionStartTime);
+            CellRangeAddress regionEndTime = new CellRangeAddress(1, 1, 7, 8);
+            sheet1.addMergedRegion(regionEndTime);
+
+            sheet1.createRow(3).createCell(0).setCellValue("规则");
+            sheet1.getRow(3).createCell(2).setCellValue("运算符");
+            sheet1.getRow(3).createCell(3).setCellValue("值");
+            sheet1.getRow(3).createCell(4).setCellValue("聚合类型");
+            sheet1.getRow(3).createCell(5).setCellValue("与或关系");
+            sheet1.getRow(3).getCell(0).setCellStyle(style);
+            sheet1.getRow(3).getCell(2).setCellStyle(style);
+            sheet1.getRow(3).getCell(3).setCellStyle(style);
+            sheet1.getRow(3).getCell(4).setCellStyle(style);
+            sheet1.getRow(3).getCell(5).setCellStyle(style);
+            CellRangeAddress regionRule = new CellRangeAddress(3, 3, 0, 1);
+            sheet1.addMergedRegion(regionRule);
+            for (int i = 0; i < rules.size(); i++) {
+                JSONObject rule = rules.get(i);
+                String metric = rule.getString("metric");
+                String metricName = null;
+                switch (metric) {
+                    case "cpuUsageAverage":
+                        metricName = "CPU利用率(%)";
+                        break;
+                    case "memUsageAverage":
+                        metricName = "内存利用率(%)";
+                        break;
+                    case "diskUsageAverage":
+                        metricName = "磁盘使用情况(KBps)";
+                        break;
+                    case "netUsageAverage":
+                        metricName = "网络使用情况(KBps)";
+                        break;
+                    case "cpuReadySummation":
+                        metricName = "CPU就绪时间(毫秒)";
+                        break;
+                    case "diskUsedPercent":
+                        metricName = "磁盘利用率(%)";
+                        break;
+                    default:
+                        break;
+                }
+                sheet1.createRow(i + 4).createCell(0).setCellValue(metricName);
+                sheet1.getRow(i + 4).createCell(2).setCellValue(rule.getString("operator"));
+                sheet1.getRow(i + 4).createCell(3).setCellValue(rule.getString("value"));
+                String valueType = rule.getString("valueType");
+                if ("avg".equals(valueType)) {
+                    valueType = "平均值";
+                } else if ("max".equals(valueType)) {
+                    valueType = "最大值";
+                } else if ("min".equals(valueType)) {
+                    valueType = "最小值";
+                }
+                sheet1.getRow(i + 4).createCell(4).setCellValue(valueType);
+                sheet1.getRow(i + 4).createCell(5).setCellValue(rule.getString("relation").equals("and") ? "与" : "或");
+                sheet1.getRow(i + 4).getCell(0).setCellStyle(cellStyle);
+                sheet1.getRow(i + 4).getCell(2).setCellStyle(cellStyle);
+                sheet1.getRow(i + 4).getCell(3).setCellStyle(cellStyle);
+                sheet1.getRow(i + 4).getCell(4).setCellStyle(cellStyle);
+                sheet1.getRow(i + 4).getCell(5).setCellStyle(cellStyle);
+
+                CellRangeAddress regionMetricName = new CellRangeAddress(i + 4, i + 4, 0, 1);
+                sheet1.addMergedRegion(regionMetricName);
+            }
+
+            for (int i = 0; i < list.size(); i++) {
+                sheet1.createRow(i + 32).createCell(0).setCellValue(list.get(i).getString("name"));
+                sheet1.getRow(i + 32).createCell(4).setCellValue(list.get(i).getString("ip"));
+                sheet1.getRow(i + 32).getCell(0).setCellStyle(cellStyle);
+                sheet1.getRow(i + 32).getCell(4).setCellStyle(cellStyle);
+                CellRangeAddress region = new CellRangeAddress(i + 32, i + 32, 0, 3);
+                sheet1.addMergedRegion(region);
+                CellRangeAddress regionIpValue = new CellRangeAddress(i + 32, i + 32, 4, 5);
+                sheet1.addMergedRegion(regionIpValue);
+                switch (type) {
+                    case "cloudServerRecycle":
+                        sheet1.getRow(i + 32).createCell(6).setCellValue(list.get(i).getString("cpuUsage"));
+                        sheet1.getRow(i + 32).createCell(8).setCellValue(list.get(i).getString("memUsage"));
+                        sheet1.getRow(i + 32).createCell(10).setCellValue(list.get(i).getString("diskUsedPercent"));
+                        sheet1.getRow(i + 32).getCell(6).setCellStyle(cellStyle);
+                        sheet1.getRow(i + 32).getCell(8).setCellStyle(cellStyle);
+                        sheet1.getRow(i + 32).getCell(10).setCellStyle(cellStyle);
+                        CellRangeAddress CloudServerRecycleCPU = new CellRangeAddress(i + 32, i + 32, 6, 7);
+                        sheet1.addMergedRegion(CloudServerRecycleCPU);
+                        CellRangeAddress CloudServerRecycleMemory = new CellRangeAddress(i + 32, i + 32, 8, 9);
+                        sheet1.addMergedRegion(CloudServerRecycleMemory);
+                        break;
+                    case "wholeMachineRecycle":
+                        sheet1.getRow(i + 32).createCell(6).setCellValue(list.get(i).getString("diskUsage"));
+                        sheet1.getRow(i + 32).createCell(8).setCellValue(list.get(i).getString("netUsage"));
+                        sheet1.getRow(i + 32).getCell(6).setCellStyle(cellStyle);
+                        sheet1.getRow(i + 32).getCell(8).setCellStyle(cellStyle);
+                        CellRangeAddress wholeMachineRecycleDisk = new CellRangeAddress(i + 32, i + 32, 6, 7);
+                        sheet1.addMergedRegion(wholeMachineRecycleDisk);
+                        CellRangeAddress wholeMachineRecycleNet = new CellRangeAddress(i + 32, i + 32, 8, 9);
+                        sheet1.addMergedRegion(wholeMachineRecycleNet);
+                        break;
+                    case "cloudServerCapacityExpansion":
+                        sheet1.getRow(i + 32).createCell(6).setCellValue(list.get(i).getString("cpuUsage"));
+                        sheet1.getRow(i + 32).createCell(8).setCellValue(list.get(i).getString("memUsage"));
+                        sheet1.getRow(i + 32).createCell(10).setCellValue(list.get(i).getString("diskUsedPercent"));
+                        sheet1.getRow(i + 32).getCell(6).setCellStyle(cellStyle);
+                        sheet1.getRow(i + 32).getCell(8).setCellStyle(cellStyle);
+                        sheet1.getRow(i + 32).getCell(10).setCellStyle(cellStyle);
+                        CellRangeAddress cloudServerCapacityExpansionCPU = new CellRangeAddress(i + 32, i + 32, 6, 7);
+                        sheet1.addMergedRegion(cloudServerCapacityExpansionCPU);
+                        CellRangeAddress cloudServerCapacityExpansionMemory = new CellRangeAddress(i + 32, i + 32, 8, 9);
+                        sheet1.addMergedRegion(cloudServerCapacityExpansionMemory);
+                        CellRangeAddress cloudServerCapacityExpansionDisk = new CellRangeAddress(i + 32, i + 32, 10, 11);
+                        sheet1.addMergedRegion(cloudServerCapacityExpansionDisk);
+                        break;
+                    case "serverCapacityExpansion":
+                        sheet1.getRow(i + 32).createCell(6).setCellValue(list.get(i).getString("cpuUsage"));
+                        sheet1.getRow(i + 32).createCell(8).setCellValue(list.get(i).getString("memUsage"));
+                        sheet1.getRow(i + 32).createCell(10).setCellValue(list.get(i).getString("cpuReady"));
+                        sheet1.getRow(i + 32).getCell(6).setCellStyle(cellStyle);
+                        sheet1.getRow(i + 32).getCell(8).setCellStyle(cellStyle);
+                        sheet1.getRow(i + 32).getCell(10).setCellStyle(cellStyle);
+                        CellRangeAddress serverCapacityExpansionCPU = new CellRangeAddress(i + 32, i + 32, 6, 7);
+                        sheet1.addMergedRegion(serverCapacityExpansionCPU);
+                        CellRangeAddress serverCapacityExpansionMemory = new CellRangeAddress(i + 32, i + 32, 8, 9);
+                        sheet1.addMergedRegion(serverCapacityExpansionMemory);
+                        CellRangeAddress serverCapacityExpansion = new CellRangeAddress(i + 32, i + 32, 10, 11);
+                        sheet1.addMergedRegion(serverCapacityExpansion);
+                        break;
+                    default:
+                        break;
+                }
+
+            }
+
+            for (int i = 0; i < charts.size(); i++) {
+                dataList = new ArrayList<>();// 数据
+                fldNameArr = new ArrayList<>();// 字段名
+                titleArr = new ArrayList<>();// 标题
+                showTailArr = new ArrayList<>();
+                isPercentArr = new ArrayList<>();
+                BaseFormMap baseFormMap = new BaseFormMap();
+                JSONObject jsonObject = charts.get(i);
+                //获取单位
+                String unit = jsonObject.getString("unit");
+                //资源名称
+                List<String> names = jsonObject.getJSONArray("keys").toJavaList(String.class);
+                //资源指标值
+                List<String> values = jsonObject.getJSONArray("values").toJavaList(String.class);
+                //监控数据指标名称
+                String dataName = jsonObject.getString("name");
+                baseFormMap.put("name", dataName + "(" + unit + ")");
+                fldNameArr.add("name");
+                titleArr.add("资源名称");
+                showTailArr.add("0");
+                isPercentArr.add("0");
+                for (int j = 0; j < names.size(); j++) {
+                    baseFormMap.put("top" + (j + 1), new BigDecimal(values.get(j)));
+                    fldNameArr.add("top" + (j + 1));
+                    titleArr.add(names.get(j));
+                    showTailArr.add("2");
+                    isPercentArr.add("0");
+                }
+                dataList.add(baseFormMap);
+                int position = 10;
+                boolean chart = createChart(wb, sheet, sheet1, position, STBarGrouping.STANDARD, false, dataList, fldNameArr,
+                        titleArr, showTailArr, isPercentArr, i + 1);
+                if (!chart) {
+                    logger.error("生成图表失败");
+                    return new BocloudResult(false, "生成图表失败");
+                }
+            }
+            // 下载表格到浏览器
+            response.setCharacterEncoding("utf-8");
+            response.setContentType("application/octet-stream");
+            String fileName = name + System.currentTimeMillis() + ".xlsx";
+            final String userAgent = request.getHeader("user-agent").toLowerCase();
+            if (userAgent.contains("trident") || userAgent.contains("edge")) {
+                fileName = URLEncoder.encode(fileName, "UTF-8");
+            } else {
+                fileName = new String(fileName.getBytes("utf-8"), "iso-8859-1");
+            }
+            response.setCharacterEncoding("utf-8");
+            response.setHeader("Content-Disposition", "attachment;fileName=" + fileName);
+            OutputStream os = response.getOutputStream();
+            wb.write(os);
+            os.flush();
+            os.close();
+        } catch (
+                IOException e) {
+            logger.error("生成图标失败", e);
+            return new BocloudResult(false, "发生异常生成图表失败");
+        }
+        return new
+
+                BocloudResult(true, "生成生成图表成功");
+
+    }
+
+    /**
+     * @param wb:工作薄
+     * @param sheet：wb.createSheet();
+     * @param dataList
+     * @param fldNameArr
+     * @param titleArr
+     * @param showtailArr
+     * @param ispercentArr
+     * @param position:从第几行开始(0：就是第一行)
+     * @return boolean
+     * @Description: 创建Excel数据
+     * @author os-nieds
+     */
+    public static boolean refreshChartExcel(SXSSFWorkbook wb, SXSSFSheet sheet, List<BaseFormMap> dataList,
+                                            List<String> fldNameArr, List<String> titleArr, List<String> showtailArr, List<String> ispercentArr,
+                                            int position, int number) {
+        boolean result = true;
+        // 样式准备
+        CellStyle style = wb.createCellStyle();
+        style.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN); // 下边框
+        style.setBorderLeft(BorderStyle.THIN);// 左边框
+        style.setBorderTop(BorderStyle.THIN);// 上边框
+        style.setBorderRight(BorderStyle.THIN);// 右边框
+        style.setAlignment(HorizontalAlignment.CENTER);
+
+        CellStyle style1 = wb.createCellStyle();
+        style1.setBorderBottom(BorderStyle.THIN); // 下边框
+        style1.setBorderLeft(BorderStyle.THIN);// 左边框
+        style1.setBorderTop(BorderStyle.THIN);// 上边框
+        style1.setBorderRight(BorderStyle.THIN);// 右边框
+        style1.setAlignment(HorizontalAlignment.CENTER);
+
+        CellStyle cellStyle = wb.createCellStyle();
+        cellStyle.setBorderTop(BorderStyle.THIN);// 上边框
+        cellStyle.setBorderBottom(BorderStyle.THIN); // 下边框
+        cellStyle.setBorderLeft(BorderStyle.THIN);// 左边框
+        cellStyle.setBorderRight(BorderStyle.THIN);// 右边框
+        cellStyle.setAlignment(HorizontalAlignment.CENTER);// 水平对齐方式
+        // cellStyle.setVerticalAlignment(VerticalAlignment.TOP);//垂直对齐方式
+
+        // 根据数据创建excel第一行标题行
+        if (1 != number) {
+            position = (number - 1) * 4 + 10;
+        }
+        for (int i = 0; i < titleArr.size(); i++) {
+            if (sheet.getRow(position) == null) {
+                sheet.createRow(position).createCell(i).setCellValue(titleArr.get(i) == null ? "" : titleArr.get(i));
+
+            } else {
+                sheet.getRow(position).createCell(i).setCellValue(titleArr.get(i) == null ? "" : titleArr.get(i));
+            }
+            // 标题行创建背景颜色
+            sheet.getRow(position).getCell(i).setCellStyle(style);
+        }
+
+        // 遍历数据行
+        for (int i = 0; i < dataList.size(); i++) {
+            BaseFormMap baseFormMap = dataList.get(i);// 数据行
+            // fldNameArr字段属性
+            for (int j = 0; j < fldNameArr.size(); j++) {
+                if (sheet.getRow(position + i + 1) == null) {
+                    if (j == 0) {
+                        try {
+                            sheet.createRow(position + i + 1).createCell(j)
+                                    .setCellValue(baseFormMap.getStr(fldNameArr.get(j)) == null ? ""
+                                            : baseFormMap.getStr(fldNameArr.get(j)));
+                        } catch (Exception e) {
+                            if (baseFormMap.getStr(fldNameArr.get(j)) == null) {
+                                sheet.createRow(position + i + 1).createCell(j).setCellValue("");
+                            } else {
+                                sheet.createRow(position + i + 1).createCell(j)
+                                        .setCellValue(baseFormMap.getDate(fldNameArr.get(j)));
+                            }
+                        }
+                    }
+                    // 标题行创建背景颜色
+                    sheet.getRow(position + i + 1).getCell(j).setCellStyle(style1);
+                } else {
+                    BigDecimal b = baseFormMap.getBigDecimal(fldNameArr.get(j));
+                    double value = 0d;
+                    if (b != null) {
+                        value = b.doubleValue();
+                    }
+                    if (value == 0) {
+                        sheet.getRow(position + i + 1).createCell(j);
+                    } else {
+                        sheet.getRow(position + i + 1).createCell(j)
+                                .setCellValue(baseFormMap.getBigDecimal(fldNameArr.get(j)).doubleValue());
+                    }
+                    if ("1".equals(ispercentArr.get(j))) {// 是否设置百分比
+                        // 设置Y轴的数字为百分比样式显示
+                        StringBuilder sb = new StringBuilder();
+
+                        if ("0".equals(showtailArr.get(j))) {// 保留几位小数
+                            sb.append("0");
+                            if ("1".equals(ispercentArr.get(j))) {// 是否百分比
+                                sb.append("%");
+                            }
+                        } else {
+                            sb.append("0.");
+                            for (int k = 0; k < Integer.parseInt(showtailArr.get(j)); k++) {
+                                sb.append("0");
+                            }
+                            if ("1".equals(ispercentArr.get(j))) {// 是否百分比
+                                sb.append("%");
+                            }
+                        }
+                        cellStyle.setDataFormat(wb.createDataFormat().getFormat(sb.toString()));
+                        sheet.getRow(position + i + 1).getCell(j).setCellStyle(cellStyle);
+                    } else {
+                        // 是否设置百分比
+                        // 设置Y轴的数字为百分比样式显示
+                        StringBuilder sb = new StringBuilder();
+
+                        if ("0".equals(showtailArr.get(j))) {// 保留几位小数
+                            sb.append("0");
+                        } else {
+                            sb.append("0.");
+                            for (int k = 0; k < Integer.parseInt(showtailArr.get(j)); k++) {
+                                sb.append("0");
+                            }
+                        }
+                        cellStyle.setDataFormat(wb.createDataFormat().getFormat(sb.toString()));
+                        sheet.getRow(position + i + 1).getCell(j).setCellStyle(cellStyle);
+                    }
+                }
+            }
+
+        }
+        return result;
+    }
+
+    /**
+     * @param wb
+     * @param sheet
+     * @param curRow:当前行号
+     * @param group:柱状图类型
+     * @param isvalAxis:是否添加Y左轴
+     * @param dataList:数据
+     * @param fldNameArr:属性
+     * @param titleArr:标题
+     * @param showtailArr:保留几位小数
+     * @param ispercentArr:是否百分比
+     * @return
+     * @Description:创建动态图
+     * @see STBarGrouping
+     */
+    public static boolean createChart(SXSSFWorkbook wb, SXSSFSheet sheet, SXSSFSheet sheet2, int curRow,
+                                      STBarGrouping.Enum group, boolean isvalAxis, List<BaseFormMap> dataList, List<String> fldNameArr,
+                                      List<String> titleArr, List<String> showtailArr, List<String> ispercentArr, int number) {
+        int position = curRow;
+        boolean result = false;
+        String sheetName = sheet.getSheetName();
+        // 动态表sheet刷新
+        result = refreshChartExcel(wb, sheet, dataList, fldNameArr, titleArr, showtailArr, ispercentArr, curRow, number);
+
+        // 创建一个画布
+        SXSSFDrawing drawing = sheet2.createDrawingPatriarch();
+
+        // 前四个默认0，[0,5]：从0列5行开始;[6,20]:宽度6，20向下扩展到20行
+        // 默认宽度(14-8)*12
+        ClientAnchor anchor = null;
+        if (dataList.size() < 10) {
+            anchor = drawing.createAnchor(0, 0, 0, 0, (number - 1) * 11, 11, 10 * number + (number - 1), 29);
+        } else {
+            anchor = drawing.createAnchor(0, 0, 0, 0, 0, position + dataList.size() + 1,
+                    (int) Math.round(dataList.size() * 0.5), position + dataList.size() + 12);
+        }
+
+        // 创建一个chart对象
+        Chart chart = drawing.createChart(anchor);
+        CTChart ctChart = ((XSSFChart) chart).getCTChart();
+        CTPlotArea ctPlotArea = ctChart.getPlotArea();
+        CTBarChart ctBarChart = ctPlotArea.addNewBarChart();
+        CTBoolean ctBoolean = ctBarChart.addNewVaryColors();
+        ctBarChart.getVaryColors().setVal(true);
+
+        // 设置类型
+        ctBarChart.addNewGrouping().setVal(group);
+        ctBoolean.setVal(true);
+        ctBarChart.addNewBarDir().setVal(STBarDir.COL);
+
+        // 是否添加左侧坐标轴
+        ctChart.addNewDispBlanksAs().setVal(STDispBlanksAs.ZERO);
+        ctChart.addNewShowDLblsOverMax().setVal(true);
+
+        // 设置这两个参数是为了在STACKED模式下生成堆积模式；(standard)标准模式时需要将这两行去掉
+        if ("stacked".equals(group.toString()) || "percentStacked".equals(group.toString())) {
+            ctBarChart.addNewGapWidth().setVal(150);
+            ctBarChart.addNewOverlap().setVal((byte) 100);
+        }
+
+        // 创建序列,并且设置选中区域
+        for (int i = 0; i < fldNameArr.size() - 1; i++) {
+            CTBarSer ctBarSer = ctBarChart.addNewSer();
+            CTSerTx ctSerTx = ctBarSer.addNewTx();
+            // 图例区
+            CTStrRef ctStrRef = ctSerTx.addNewStrRef();
+            String legendDataRange = new CellRangeAddress((number - 1) * 4 + 10, (number - 1) * 4 + 10, i + 1, i + 1).formatAsString(sheetName,
+                    true);
+            ctStrRef.setF(legendDataRange);
+            ctBarSer.addNewIdx().setVal(i);
+
+            // 横坐标区
+            CTAxDataSource cttAxDataSource = ctBarSer.addNewCat();
+            ctStrRef = cttAxDataSource.addNewStrRef();
+            String axisDataRange = new CellRangeAddress((number - 1) * 4 + 11, (number - 1) * 4 + 11, 0, 0)
+                    .formatAsString(sheetName, true);
+            ctStrRef.setF(axisDataRange);
+
+            // 数据区域
+            CTNumDataSource ctNumDataSource = ctBarSer.addNewVal();
+            CTNumRef ctNumRef = ctNumDataSource.addNewNumRef();
+            String numDataRange = new CellRangeAddress((number - 1) * 4 + 11, (number - 1) * 4 + 11, i + 1, i + 1)
+                    .formatAsString(sheetName, true);
+            ctNumRef.setF(numDataRange);
+
+            ctBarSer.addNewSpPr().addNewLn().addNewSolidFill().addNewSrgbClr().setVal(new byte[]{0, 0, 0});
+
+            // 设置负轴颜色不是白色
+            ctBarSer.addNewInvertIfNegative().setVal(false);
+            // 设置标签格式
+            ctBoolean.setVal(false);
+            CTDLbls newDLbls = ctBarSer.addNewDLbls();
+            newDLbls.setShowLegendKey(ctBoolean);
+            ctBoolean.setVal(true);
+            newDLbls.setShowVal(ctBoolean);
+            ctBoolean.setVal(false);
+            newDLbls.setShowCatName(ctBoolean);
+            newDLbls.setShowSerName(ctBoolean);
+            newDLbls.setShowPercent(ctBoolean);
+            newDLbls.setShowBubbleSize(ctBoolean);
+            newDLbls.setShowLeaderLines(ctBoolean);
+        }
+
+        // telling the BarChart that it has axes and giving them Ids
+        ctBarChart.addNewAxId().setVal(123456);
+        ctBarChart.addNewAxId().setVal(123457);
+
+        // cat axis
+        CTCatAx ctCatAx = ctPlotArea.addNewCatAx();
+        ctCatAx.addNewAxId().setVal(123456); // id of the cat axis
+        CTScaling ctScaling = ctCatAx.addNewScaling();
+        ctScaling.addNewOrientation().setVal(STOrientation.MIN_MAX);
+        ctCatAx.addNewAxPos().setVal(STAxPos.B);
+        ctCatAx.addNewCrossAx().setVal(123457); // id of the val axis
+        ctCatAx.addNewTickLblPos().setVal(STTickLblPos.NEXT_TO);
+
+        // val axis
+        CTValAx ctValAx = ctPlotArea.addNewValAx();
+        ctValAx.addNewAxId().setVal(123457); // id of the val axis
+        ctScaling = ctValAx.addNewScaling();
+        ctScaling.addNewOrientation().setVal(STOrientation.MIN_MAX);
+        // 设置位置
+        ctValAx.addNewAxPos().setVal(STAxPos.L);
+        ctValAx.addNewCrossAx().setVal(123456); // id of the cat axis
+        ctValAx.addNewTickLblPos().setVal(STTickLblPos.NEXT_TO);
+
+        // 是否删除主左边轴
+        if (isvalAxis) {
+            ctValAx.addNewDelete().setVal(false);
+        } else {
+            ctValAx.addNewDelete().setVal(true);
+        }
+
+        // 是否删除横坐标
+        ctCatAx.addNewDelete().setVal(false);
+
+        // legend图注
+        CTLegend ctLegend = ctChart.addNewLegend();
+        ctLegend.addNewLegendPos().setVal(STLegendPos.TR);
+        ctLegend.addNewOverlay().setVal(false);
+
+        return result;
+    }
+
+}
+
+

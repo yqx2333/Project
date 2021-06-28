@@ -1,0 +1,247 @@
+package com.bocloud.cos.service.utils;
+
+import com.alibaba.fastjson.JSONObject;
+import org.apache.poi.hssf.usermodel.*;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.WorkbookUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 利用apache.poi导出EXCEL
+ *
+ * @author sxp
+ * @since Nov 9, 2017
+ */
+public class ExcelExporter {
+	private static Logger logger = LoggerFactory.getLogger(ExcelExporter.class);
+	/**
+	 * 将数据以EXCEL的形式输出到指定IO设备上
+	 * <p>
+	 * 在原有export方法的基础上增加入参：firstFewRows、dataColumns，去掉入参flag、pos。<br>
+	 * 增加对数据集合中各个字段数据类型的判断。 <br>
+	 * </p>
+	 *
+	 *
+	 * @param title 表格标题名(即SheetName)
+	 * @param firstFewRows 在显示数据集合之前提前显示的几行数据
+	 * @param headers 表格属性列名数组
+	 * @param dataColumns 数据集中的列名，顺序和headers属性列一一对应
+	 * @param datas 需要显示的数据集合,集合中一定要放置符合javabean风格的类的对象。
+	 * @param out 与输出设备关联的流对象，可以将EXCEL文档导出到本地文件或者网络中
+	 * @param dateFormat 如果有时间数据，设定输出格式。默认为"yyyy-MM-dd"
+	 * @author sxp
+	 * @since Nov 30, 2016
+	 * @since 2017-01-03 modify by sxp 在Excel中工作表的名称最大长度为31，并且不能含有9种特殊字符
+	 * @since 2017-11-17 modify by sxp 修正[只调用setFillPattern的情况下，使用微软Excel打开后背景色为黑色]的bug
+	 */
+	public static void export(String title, List<List<Object>> firstFewRows, String[] headers, String[] dataColumns,
+							  List<Map<String, Object>> datas, HttpServletResponse response, String dateFormat) {
+		if (null == headers || headers.length <= 0 || null == response) {
+			logger.warn("no headers or OutputStream is null");
+			return;
+		}
+		if (null == datas) {
+			logger.info("no datas");
+			datas = new ArrayList<>();
+		}
+		if (dateFormat.isEmpty()) {
+			dateFormat = "yyyy-MM-dd";
+		}
+
+		HSSFWorkbook workbook = new HSSFWorkbook();
+
+		try {
+			int sheetNum = 1;
+			int currentRowCount = 1;
+			// 每个工作薄显示50000条数据(MAX:65536)
+			int perPageNum = 50000;
+
+			String safeTitle = WorkbookUtil.createSafeSheetName(title + "_" + sheetNum);
+			HSSFSheet sheet = workbook.createSheet(safeTitle);
+			sheet.setDefaultColumnWidth((short) 15);
+			HSSFCellStyle headerStyle = workbook.createCellStyle();
+
+			// 设置表头样式
+			headerStyle.setBorderBottom(BorderStyle.THIN);
+			headerStyle.setBorderLeft(BorderStyle.THIN);
+			headerStyle.setBorderRight(BorderStyle.THIN);
+			headerStyle.setBorderTop(BorderStyle.THIN);
+			headerStyle.setAlignment(HorizontalAlignment.CENTER);
+
+			HSSFFont headerFont = workbook.createFont();
+			headerFont.setBold(true);
+			headerFont.setFontHeightInPoints((short) 12);
+			headerStyle.setFont(headerFont);
+
+			// 设置内容样式
+			HSSFCellStyle contentStyle = workbook.createCellStyle();
+			contentStyle.setBorderBottom(BorderStyle.THIN);
+			contentStyle.setBorderLeft(BorderStyle.THIN);
+			contentStyle.setBorderRight(BorderStyle.THIN);
+			contentStyle.setBorderTop(BorderStyle.THIN);
+			contentStyle.setAlignment(HorizontalAlignment.CENTER);
+			contentStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+			HSSFFont contentFont = workbook.createFont();
+			contentFont.setBold(false);
+			contentStyle.setFont(contentFont);
+
+			// 日期单元格样式
+			CreationHelper createHelper = workbook.getCreationHelper();
+			CellStyle dateStyle = workbook.createCellStyle();
+			dateStyle.cloneStyleFrom(contentStyle);
+			dateStyle.setDataFormat(createHelper.createDataFormat().getFormat(dateFormat));
+
+			CellStyle simpleDateStyle = workbook.createCellStyle();
+			simpleDateStyle.setDataFormat(createHelper.createDataFormat().getFormat(dateFormat));
+
+			HSSFRow row;
+			HSSFCell cell;
+			HSSFRichTextString richString;
+			int index;
+
+			// 在显示数据集合之前提前显示几行数据List<List<Object>> firstFewRows
+			if (firstFewRows != null && !firstFewRows.isEmpty()) {
+				for (List<Object> cells : firstFewRows) {
+					// Rows are 0 based.
+					row = sheet.createRow(currentRowCount - 1);
+					currentRowCount++;
+
+					index = 0;
+					for (Object value : cells) {
+						cell = row.createCell(index++);
+
+						if (value == null) {
+							continue;
+						} else if (value instanceof String) {
+							cell.setCellValue((String) value);
+						} else if (value instanceof Date) {
+							cell.setCellValue((Date) value);
+							cell.setCellStyle(simpleDateStyle);
+						} else {
+							richString = new HSSFRichTextString(JSONObject.toJSONString(value));
+							cell.setCellValue(richString);
+						}
+					}
+				}
+			}
+
+			// 产生表格标题行
+			row = sheet.createRow(currentRowCount - 1);
+			currentRowCount++;
+
+			index = 0;
+			for (String text : headers) {
+				cell = row.createCell(index++);
+				cell.setCellStyle(headerStyle);
+				richString = new HSSFRichTextString(text);
+				cell.setCellValue(richString);
+			}
+
+			// 遍历集合数据，产生数据行
+			Object value;
+
+			for (Map<String, Object> dataMap : datas) {
+				if (currentRowCount % perPageNum == 0) {
+					sheet = null;
+					sheetNum++;
+					safeTitle = WorkbookUtil.createSafeSheetName(title + "_" + sheetNum);
+					sheet = workbook.createSheet(safeTitle);
+					currentRowCount = 1;
+				}
+
+				row = sheet.createRow(currentRowCount - 1);
+				currentRowCount++;
+
+				index = 0;
+				for (String column : dataColumns) {
+					value = dataMap.get(column);
+
+					cell = row.createCell(index++);
+					cell.setCellStyle(contentStyle);
+
+					if (value == null) {
+						continue;
+					} else if (value instanceof String) {
+						cell.setCellValue((String) value);
+					} else if (value instanceof Date) {
+						// 日期设置单独的样式
+						cell.setCellStyle(dateStyle);
+						cell.setCellValue((Date) value);
+					} else {
+						richString = new HSSFRichTextString(JSONObject.toJSONString(value));
+						cell.setCellValue(richString);
+					}
+				}
+			}
+			response.setHeader("Content-Disposition", "attachment;filename="+ URLEncoder.encode("账单列表" + new Date().getTime()+".xlsx", "UTF-8"));
+			response.setHeader("Connection", "close");
+			response.setHeader("Content-Type", "application/octet-stream");
+			workbook.write(response.getOutputStream());
+			workbook.close();
+		} catch (IOException e) {
+			logger.error("export excel error:", e);
+		} finally {
+			try {
+				workbook.close();
+			} catch (IOException e) {
+				logger.error("close workbook error!", e);
+			}
+		}
+	}
+}
+
+/*
+模板
+// 账单导出
+            String[] headers = new String[]{"账期", "资源类型", "流水号", "账单状态", "计费类型", "订单号",
+                    "账单金额(元)", "创建时间", "租户名称"};
+            String[] dataColumns = new String[]{"month", "serviceName", "orderSn", "status", "chargeMode", "sn",
+                    "money", "gmtCreate", "tenantName"};
+            List<Map<String, Object>> allRows = new ArrayList<>();
+            for (ServiceBill serviceBill : list) {
+                Map<String, Object> row;
+                row = new HashMap<>(6);
+                row.put(dataColumns[0], serviceBill.getMonth());
+                row.put(dataColumns[1], serviceBill.getServiceName());
+                row.put(dataColumns[2], serviceBill.getSn());
+                // 特殊处理 账单状态
+                if ("unpay".equalsIgnoreCase(serviceBill.getStatus().name())) {
+                    row.put(dataColumns[3], "未支付");
+                } else if ("paid".equalsIgnoreCase(serviceBill.getStatus().name())) {
+                    row.put(dataColumns[3], "已支付");
+                } else if ("paying".equalsIgnoreCase(serviceBill.getStatus().name())) {
+                    row.put(dataColumns[3], "支付中");
+                } else if ("canceld".equalsIgnoreCase(serviceBill.getStatus().name())) {
+                    row.put(dataColumns[3], "已取消");
+                } else {
+                    row.put(dataColumns[3], serviceBill.getStatus());
+                }
+                // 特殊处理 计费类型
+                if ("PostCharge".equalsIgnoreCase(serviceBill.getChargeMode())) {
+                    row.put(dataColumns[4], "后付费");
+                } else if ("PreCharger".equalsIgnoreCase(serviceBill.getChargeMode())) {
+                    row.put(dataColumns[4], "预付费");
+                } else {
+                    row.put(dataColumns[4], serviceBill.getChargeMode());
+                }
+                row.put(dataColumns[5], serviceBill.getOrderSn());
+                row.put(dataColumns[6], serviceBill.getMoney());
+                row.put(dataColumns[7], serviceBill.getGmtCreate());
+                row.put(dataColumns[8], serviceBill.getTenantName());
+                allRows.add(row);
+            }
+            List<List<Object>> firstFewRows = new ArrayList<>();
+            ExcelExporter.export("Sheet", firstFewRows, headers, dataColumns, allRows, response, "yyyy-MM-dd HH:mm:ss");
+            return new BocloudResult(true, "账单导出成功");
+
+*/
